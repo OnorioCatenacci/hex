@@ -16,9 +16,9 @@ defmodule Hex.SCM do
 
   def format_lock(opts) do
     case Hex.Utils.lock(opts[:lock]) do
-      [:hex, name, version, nil, _managers, _deps] ->
+      [:hex, name, version, nil] ->
         "#{version} (#{name})"
-      [:hex, name, version, <<checksum::binary-8, _::binary>>, _managers, _deps] ->
+      [:hex, name, version, <<checksum::binary-8, _::binary>>] ->
         "#{version} (#{name}) #{checksum}"
       _ ->
         nil
@@ -35,7 +35,7 @@ defmodule Hex.SCM do
 
   def lock_status(opts) do
     case Hex.Utils.lock(opts[:lock]) do
-      [:hex, name, version, checksum, _managers, _deps] ->
+      [:hex, name, version, checksum] ->
         lock_status(opts[:dest], Atom.to_string(name), version, checksum)
       nil ->
         :mismatch
@@ -64,14 +64,13 @@ defmodule Hex.SCM do
   end
 
   def managers(opts) do
+    Hex.Registry.open!(Hex.Registry.ETS)
+
     case Hex.Utils.lock(opts[:lock]) do
-      [:hex, name, version, _checksum, nil, _deps] ->
-        Hex.Utils.ensure_registry!(fetch: false)
+      [:hex, name, version] ->
         name        = Atom.to_string(name)
         build_tools = Hex.Registry.get_build_tools(name, version) || []
         Enum.map(build_tools, &String.to_atom/1)
-      [:hex, _name, _version, _checksum, managers, _deps] ->
-        managers
       _ ->
         []
     end
@@ -82,28 +81,28 @@ defmodule Hex.SCM do
   def checkout(opts) do
     Hex.Registry.open!(Hex.Registry.ETS)
 
-    [:hex, _name, version, checksum, _managers, _deps] = Hex.Utils.lock(opts[:lock])
+    [:hex, _name, version, checksum] = Hex.Utils.lock(opts[:lock])
     name     = opts[:hex]
     dest     = opts[:dest]
     filename = "#{name}-#{version}.tar"
     path     = cache_path(filename)
     url      = Hex.API.repo_url("tarballs/#{filename}")
 
-    Hex.Shell.info "  Checking package (#{url})"
+    Hex.Shell.info "Checking package (#{url})"
 
     case Hex.Parallel.await(:hex_fetcher, {name, version}, @fetch_timeout) do
       {:ok, :cached} ->
-        Hex.Shell.info "  Using locally cached package"
+        Hex.Shell.info "Using locally cached package"
       {:ok, :offline} ->
-        Hex.Shell.info "  [OFFLINE] Using locally cached package"
+        Hex.Shell.info "[OFFLINE] Using locally cached package"
       {:ok, :new} ->
-        Hex.Shell.info "  Fetched package"
+        Hex.Shell.info "Fetched package"
       {:error, reason} ->
         Hex.Shell.error(reason)
         unless File.exists?(path) do
           Mix.raise "Package fetch failed and no cached copy available"
         end
-        Hex.Shell.info "  Fetch failed. Using locally cached package"
+        Hex.Shell.info "Fetch failed. Using locally cached package"
     end
 
     File.rm_rf!(dest)
@@ -156,7 +155,7 @@ defmodule Hex.SCM do
 
     Enum.flat_map(lock, fn {_app, info} ->
       case Hex.Utils.lock(info) do
-        [:hex, name, version, _checksum, _managers, _deps] ->
+        [:hex, name, version, _checksum] ->
           if fetch?(name, version, deps_path), do: [{name, version}], else: []
         _ ->
           []

@@ -21,6 +21,8 @@ defmodule Mix.Tasks.Hex.Publish do
   ## Command line options
 
     * `--revert VERSION` - Revert given version
+    * `-- docs` - Solely publish package docs
+    * `-- package` - Publish the package to Hex.pm
 
   ## Configuration
 
@@ -75,7 +77,7 @@ defmodule Mix.Tasks.Hex.Publish do
       by setting this field.
   """
 
-  @switches [revert: :string, progress: :boolean]
+  @switches [revert: :string, progress: :boolean, docs: :boolean ,package: :boolean]
 
   def run(args) do
     {opts, _, _} = OptionParser.parse(args, switches: @switches)
@@ -86,19 +88,37 @@ defmodule Mix.Tasks.Hex.Publish do
     exclude_deps = build[:exclude_deps]
     auth         = Utils.auth_info()
 
-    if version = opts[:revert] do
-      revert(meta, version, auth)
-    else
-      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
-      Build.print_info(meta, exclude_deps, package[:files])
+#    if version = opts[:revert] do
+#      revert(meta, version, auth)
+#    else
+#      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
+#      Build.print_info(meta, exclude_deps, package[:files])
+#
+#      print_link_to_coc()
+#
+#      if Hex.Shell.yes?("Proceed?") do
+#        progress? = Keyword.get(opts, :progress, true)
+#        create_release(meta, auth, progress?)
+#      end
+    #    end
+    case opts do
+      :revert ->
+        version = opts[:revert]
+        revert(meta, version, auth)
+      :package -> 
+        Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
+        Build.print_info(meta, exclude_deps, package[:files])
 
-      print_link_to_coc()
+        print_link_to_coc()
 
-      if Hex.Shell.yes?("Proceed?") do
-        progress? = Keyword.get(opts, :progress, true)
-        create_release(meta, auth, progress?)
-      end
-    end
+        if Hex.Shell.yes?("Proceed?") do
+          progress? = Keyword.get(opts, :progress, true)
+          create_release(meta, auth, progress?)
+        end
+      :docs ->
+        Hex.Shell.info("Uploading docs for #{meta[:name]} #{meta[:version]} to Hex.pm")
+    end 
+            
   end
 
   defp print_link_to_coc() do

@@ -22,7 +22,7 @@ defmodule Mix.Tasks.Hex.Publish do
 
     * `--revert VERSION` - Revert given version
  
-   * `docs` - Publish docs to hex.pm
+   * `docs` - Publish docs only to hex.pm
  
    * `package` - Publish package to hex.pm
 
@@ -84,16 +84,21 @@ defmodule Mix.Tasks.Hex.Publish do
   def run(args) do
     {opts, args, _} = OptionParser.parse(args, switches: @switches)
 
-    {meta, _, _, auth} = initialize_build_details()
+    build        = Build.prepare_package!
+    meta         = build[:meta]
+    package      = build[:package]
+    exclude_deps = build[:exclude_deps]
+    auth         = Utils.auth_info()
+
     if version = opts[:revert] do
       revert(meta, version, auth)
     else
       case args do 
         ["package"] ->
-          package(opts)
+          package()
 
-        ["docs"] ->
-          docs(opts)
+       ["docs"] ->
+          docs()
 
       _ ->
           Mix.raise "Invalid arguments, expected one of:\n" <>
@@ -104,25 +109,16 @@ defmodule Mix.Tasks.Hex.Publish do
     end
   end
 
-  defp initialize_build_details() do
-    build = Build.prepare_package!
-    meta = build[:meta]
-    package = build[:package]
-    exclude_deps = build[:exclude_deps]
-    auth = Utils.auth_info()
-    {meta, package, exclude_deps, auth}
-  end
+  defp package() do
+      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
+      Build.print_info(meta, exclude_deps, package[:files])
 
-  defp package(opts) do
-    {meta, package, exclude_deps, auth} = initialize_build_details()
-    Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
-    Build.print_info(meta, exclude_deps, package[:files])
+      print_link_to_coc()
 
-    print_link_to_coc()
-
-    if Hex.Shell.yes?("Proceed?") do
-      progress? = Keyword.get(opts, :progress, true)
-      create_release(meta, auth, progress?)
+      if Hex.Shell.yes?("Proceed?") do
+        progress? = Keyword.get(opts, :progress, true)
+        create_release(meta, auth, progress?)
+      end
     end
   end
 
@@ -130,42 +126,8 @@ defmodule Mix.Tasks.Hex.Publish do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
-  defp docs(opts) do
-    Hex.start
-      
-    Hex.Utils.ensure_registry(fetch: false)
-    {_,_,_,auth} = initialize_build_details()
-    Mix.Project.get!
-    config  = Mix.Project.config
-    name    = config[:package][:name] || config[:app]
-    version = config[:version]
-
-    if revert = opts[:revert] do
-      revert(name, revert, auth)
-    else
-      try do
-        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)]
-        Hex.Shell.info("docs_args = #{docs_args}")
-        Mix.Task.run("docs", docs_args)
-      rescue ex in [Mix.NoTaskError] ->
-        stacktrace = System.stacktrace
-        Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>
-                        ~s( to your dependencies or if ex_doc was already added make sure you run) <>
-                        ~s( the task in the same environment it is configured to)
-        reraise ex, stacktrace
-      end
-
-#      directory = docs_dir()
-
-      doc_index = "#{Hex.Utils.get_docs_directory(name)}/index.html"
-      unless File.exists?(doc_index) do
-        Mix.raise "Documentation file not found: #{doc_index}"
-      end
-
-      progress? = Keyword.get(opts, :progress, true)
-      tarball = build_tarball(name, version, Hex.Utils.get_docs_directory(name))
-      send_tarball(name, version, tarball, auth, progress?)
-    end
+  defp docs() do
+    Mix.Hex.Docs.Tasks.run()
   end
   
   defp revert(meta, version, auth) do
@@ -198,60 +160,6 @@ defmodule Mix.Tasks.Hex.Publish do
       {code, body, _} ->
         Hex.Shell.error("\nPushing #{meta[:name]} #{meta[:version]} failed")
         Hex.Utils.print_error_result(code, body)
-    end
-  end
-  
-  defp build_tarball(name, version, directory) do
-    tarball = "#{name}-#{version}-docs.tar.gz"
-    files = files(directory)
-    :ok = :erl_tar.create(tarball, files, [:compressed])
-    data = File.read!(tarball)
-
-    File.rm!(tarball)
-    data
-  end
-
-  defp send_tarball(name, version, tarball, auth, progress?) do
-    progress =
-      if progress? do
-        Utils.progress(byte_size(tarball))
-      else
-        Utils.progress(nil)
-      end
-
-    case Hex.API.ReleaseDocs.new(name, version, tarball, auth, progress) do
-      {code, _, _} when code in 200..299 ->
-        Hex.Shell.info ""
-        Hex.Shell.info "Published docs for #{name} #{version}"
-        # TODO: Only print this URL if we use the default API URL
-        Hex.Shell.info "Hosted at #{Hex.Utils.hexdocs_url(name, version)}"
-      {code, body, _} ->
-        Hex.Shell.info ""
-        Hex.Shell.error "Pushing docs for #{name} v#{version} failed"
-        Hex.Utils.print_error_result(code, body)
-    end
-  end
-
-  defp files(directory) do
-    "#{directory}/**"
-    |> Path.wildcard
-    |> Enum.filter(&File.regular?/1)
-    |> Enum.map(&{relative_path(&1, directory), File.read!(&1)})
-  end
-
-  defp relative_path(file, dir) do
-    Path.relative_to(file, dir)
-    |> String.to_char_list
-  end
-  
-  defp docs_dir do
-    cond do
-      File.exists?("doc") ->
-        "doc"
-      File.exists?("docs") ->
-        "docs"
-      true ->
-        Mix.raise("Documentation could not be found. Please ensure documentation is in the doc/ or docs/ directory")
     end
   end
 end

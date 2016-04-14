@@ -84,18 +84,13 @@ defmodule Mix.Tasks.Hex.Publish do
   def run(args) do
     {opts, args, _} = OptionParser.parse(args, switches: @switches)
 
-    build        = Build.prepare_package!
-    meta         = build[:meta]
-    package      = build[:package]
-    exclude_deps = build[:exclude_deps]
-    auth         = Utils.auth_info()
-
+    {meta, _, _, auth} = initialize_build_details()
     if version = opts[:revert] do
       revert(meta, version, auth)
     else
       case args do 
         ["package"] ->
-          package()
+          package(opts)
 
        ["docs"] ->
           docs()
@@ -109,16 +104,25 @@ defmodule Mix.Tasks.Hex.Publish do
     end
   end
 
-  defp package() do
-      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
-      Build.print_info(meta, exclude_deps, package[:files])
+  defp initialize_build_details() do
+    build = Build.prepare_package!
+    meta = build[:meta]
+    package = build[:package]
+    exclude_deps = build[:exclude_deps]
+    auth = Utils.auth_info()
+    {meta, package, exclude_deps, auth}
+  end
 
-      print_link_to_coc()
+  defp package(opts) do
+    {meta, package, exclude_deps, auth} = initialize_build_details()
+    Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
+    Build.print_info(meta, exclude_deps, package[:files])
 
-      if Hex.Shell.yes?("Proceed?") do
-        progress? = Keyword.get(opts, :progress, true)
-        create_release(meta, auth, progress?)
-      end
+    print_link_to_coc()
+
+    if Hex.Shell.yes?("Proceed?") do
+      progress? = Keyword.get(opts, :progress, true)
+      create_release(meta, auth, progress?)
     end
   end
 

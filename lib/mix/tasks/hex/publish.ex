@@ -21,6 +21,10 @@ defmodule Mix.Tasks.Hex.Publish do
   ## Command line options
 
     * `--revert VERSION` - Revert given version
+ 
+   * `docs` - Publish docs only to hex.pm
+ 
+   * `package` - Publish package to hex.pm
 
   ## Configuration
 
@@ -78,7 +82,7 @@ defmodule Mix.Tasks.Hex.Publish do
   @switches [revert: :string, progress: :boolean]
 
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args, switches: @switches)
+    {opts, args, _} = OptionParser.parse(args, switches: @switches)
 
     build        = Build.prepare_package!
     meta         = build[:meta]
@@ -89,6 +93,23 @@ defmodule Mix.Tasks.Hex.Publish do
     if version = opts[:revert] do
       revert(meta, version, auth)
     else
+      case args do 
+        ["package"] ->
+          package()
+
+       ["docs"] ->
+          docs()
+
+      _ ->
+          Mix.raise "Invalid arguments, expected one of:\n" <>
+                "mix hex.publish docs \n" <>
+                "mix hex.publish package \n" 
+      end
+         
+    end
+  end
+
+  defp package() do
       Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
       Build.print_info(meta, exclude_deps, package[:files])
 
@@ -105,6 +126,10 @@ defmodule Mix.Tasks.Hex.Publish do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
+  defp docs() do
+    Mix.Hex.Docs.Tasks.run()
+  end
+  
   defp revert(meta, version, auth) do
     version = Utils.clean_version(version)
 

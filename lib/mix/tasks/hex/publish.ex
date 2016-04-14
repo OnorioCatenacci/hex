@@ -21,8 +21,10 @@ defmodule Mix.Tasks.Hex.Publish do
   ## Command line options
 
     * `--revert VERSION` - Revert given version
-    * `-- docs` - Solely publish package docs
-    * `-- package` - Publish the package to Hex.pm
+ 
+   * `docs` - Publish docs only to hex.pm
+ 
+   * `package` - Publish package to hex.pm
 
   ## Configuration
 
@@ -77,10 +79,10 @@ defmodule Mix.Tasks.Hex.Publish do
       by setting this field.
   """
 
-  @switches [revert: :string, progress: :boolean, docs: :boolean ,package: :boolean]
+  @switches [revert: :string, progress: :boolean]
 
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args, switches: @switches)
+    {opts, args, _} = OptionParser.parse(args, switches: @switches)
 
     build        = Build.prepare_package!
     meta         = build[:meta]
@@ -88,43 +90,46 @@ defmodule Mix.Tasks.Hex.Publish do
     exclude_deps = build[:exclude_deps]
     auth         = Utils.auth_info()
 
-#    if version = opts[:revert] do
-#      revert(meta, version, auth)
-#    else
-#      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
-#      Build.print_info(meta, exclude_deps, package[:files])
-#
-#      print_link_to_coc()
-#
-#      if Hex.Shell.yes?("Proceed?") do
-#        progress? = Keyword.get(opts, :progress, true)
-#        create_release(meta, auth, progress?)
-#      end
-    #    end
-    case opts do
-      :revert ->
-        version = opts[:revert]
-        revert(meta, version, auth)
-      :package -> 
-        Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
-        Build.print_info(meta, exclude_deps, package[:files])
+    if version = opts[:revert] do
+      revert(meta, version, auth)
+    else
+      case args do 
+        ["package"] ->
+          package()
 
-        print_link_to_coc()
+       ["docs"] ->
+          docs()
 
-        if Hex.Shell.yes?("Proceed?") do
-          progress? = Keyword.get(opts, :progress, true)
-          create_release(meta, auth, progress?)
-        end
-      :docs ->
-        Hex.Shell.info("Uploading docs for #{meta[:name]} #{meta[:version]} to Hex.pm")
-    end 
-            
+      _ ->
+          Mix.raise "Invalid arguments, expected one of:\n" <>
+                "mix hex.publish docs \n" <>
+                "mix hex.publish package \n" 
+      end
+         
+    end
+  end
+
+  defp package() do
+      Hex.Shell.info("Publishing #{meta[:name]} #{meta[:version]}")
+      Build.print_info(meta, exclude_deps, package[:files])
+
+      print_link_to_coc()
+
+      if Hex.Shell.yes?("Proceed?") do
+        progress? = Keyword.get(opts, :progress, true)
+        create_release(meta, auth, progress?)
+      end
+    end
   end
 
   defp print_link_to_coc() do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
+  defp docs() do
+    Mix.Hex.Docs.Tasks.run()
+  end
+  
   defp revert(meta, version, auth) do
     version = Utils.clean_version(version)
 

@@ -92,8 +92,8 @@ defmodule Mix.Tasks.Hex.Publish do
         ["package"] ->
           package(opts)
 
-       ["docs"] ->
-          docs()
+        ["docs"] ->
+          docs(args)
 
       _ ->
           Mix.raise "Invalid arguments, expected one of:\n" <>
@@ -130,8 +130,8 @@ defmodule Mix.Tasks.Hex.Publish do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
-  defp docs() do
-    Mix.Hex.Docs.Tasks.run()
+  defp docs(opts) do
+    Mix.Tasks.Hex.Docs.run([opts, ""])
   end
   
   defp revert(meta, version, auth) do

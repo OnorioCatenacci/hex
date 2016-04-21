@@ -25,23 +25,27 @@ defmodule Mix.Tasks.Hex.Docs do
   @switches [revert: :string, progress: :boolean]
 
   def run(args) do
+    Hex.Shell.info("args is #{args}")
     Hex.start
+      
     Hex.Utils.ensure_registry(fetch: false)
 
     {opts, args, _} = OptionParser.parse(args, switches: @switches)
     auth = Utils.auth_info()
-
     Mix.Project.get!
     config  = Mix.Project.config
     name    = config[:package][:name] || config[:app]
     version = config[:version]
 
+    Hex.Shell.info("#{name} #{version}")
+    Hex.Shell.info("opts[:revert] #{opts[:revert]}")
     if revert = opts[:revert] do
       revert(name, revert, auth)
     else
       try do
         docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
         Mix.Task.run("docs", docs_args)
+        Hex.Shell.info("Got to Mix.Task.run")
       rescue ex in [Mix.NoTaskError] ->
         stacktrace = System.stacktrace
         Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>

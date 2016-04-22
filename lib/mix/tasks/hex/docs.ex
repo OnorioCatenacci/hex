@@ -27,6 +27,7 @@ defmodule Mix.Tasks.Hex.Docs do
   @switches [revert: :string, progress: :boolean]
 
   def run(args) do
+    Hex.Shell.info("args is #{args}")
     Hex.start
       
     Hex.Utils.ensure_registry(fetch: false)

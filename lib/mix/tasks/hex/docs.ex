@@ -20,12 +20,13 @@ defmodule Mix.Tasks.Hex.Docs do
   ## Command line options
 
     * `--revert VERSION` - Revert given version
+    * `open` - Opens the docs in the default web browser
+    * `fetch PACKAGE VERSION` - Gets a copy of the docs for the specified package and version to the local machine. Defaults to current package and version.
   """
 
   @switches [revert: :string, progress: :boolean]
 
   def run(args) do
-    Hex.Shell.info("args is #{args}")
     Hex.start
       
     Hex.Utils.ensure_registry(fetch: false)

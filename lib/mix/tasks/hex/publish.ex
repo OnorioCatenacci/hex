@@ -22,7 +22,7 @@ defmodule Mix.Tasks.Hex.Publish do
 
     * `--revert VERSION` - Revert given version
  
-   * `docs` - Publish docs only to hex.pm
+   * `docs` - Publish docs to hex.pm
  
    * `package` - Publish package to hex.pm
 
@@ -93,7 +93,7 @@ defmodule Mix.Tasks.Hex.Publish do
           package(opts)
 
         ["docs"] ->
-          docs(args)
+          docs(opts, args)
 
       _ ->
           Mix.raise "Invalid arguments, expected one of:\n" <>
@@ -130,8 +130,41 @@ defmodule Mix.Tasks.Hex.Publish do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
-  defp docs(opts) do
-    Mix.Tasks.Hex.Docs.run([opts, ""])
+  defp docs(opts, args) do
+    Hex.start
+      
+    Hex.Utils.ensure_registry(fetch: false)
+    {_,_,_,auth} = initialize_build_details()
+    Mix.Project.get!
+    config  = Mix.Project.config
+    name    = config[:package][:name] || config[:app]
+    version = config[:version]
+
+    if revert = opts[:revert] do
+      revert(name, revert, auth)
+    else
+      try do
+        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
+        Mix.Task.run("docs", docs_args)
+        Hex.Shell.info("Got to Mix.Task.run")
+      rescue ex in [Mix.NoTaskError] ->
+        stacktrace = System.stacktrace
+        Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>
+                        ~s( to your dependencies or if ex_doc was already added make sure you run) <>
+                        ~s( the task in the same environment it is configured to)
+        reraise ex, stacktrace
+      end
+
+      directory = docs_dir()
+
+      unless File.exists?("#{directory}/index.html") do
+        Mix.raise "File not found: #{directory}/index.html"
+      end
+
+      progress? = Keyword.get(opts, :progress, true)
+      tarball = build_tarball(name, version, directory)
+      send_tarball(name, version, tarball, auth, progress?)
+    end
   end
   
   defp revert(meta, version, auth) do
@@ -164,6 +197,60 @@ defmodule Mix.Tasks.Hex.Publish do
       {code, body, _} ->
         Hex.Shell.error("\nPushing #{meta[:name]} #{meta[:version]} failed")
         Hex.Utils.print_error_result(code, body)
+    end
+  end
+  
+  defp build_tarball(name, version, directory) do
+    tarball = "#{name}-#{version}-docs.tar.gz"
+    files = files(directory)
+    :ok = :erl_tar.create(tarball, files, [:compressed])
+    data = File.read!(tarball)
+
+    File.rm!(tarball)
+    data
+  end
+
+  defp send_tarball(name, version, tarball, auth, progress?) do
+    progress =
+      if progress? do
+        Utils.progress(byte_size(tarball))
+      else
+        Utils.progress(nil)
+      end
+
+    case Hex.API.ReleaseDocs.new(name, version, tarball, auth, progress) do
+      {code, _, _} when code in 200..299 ->
+        Hex.Shell.info ""
+        Hex.Shell.info "Published docs for #{name} #{version}"
+        # TODO: Only print this URL if we use the default API URL
+        Hex.Shell.info "Hosted at #{Hex.Utils.hexdocs_url(name, version)}"
+      {code, body, _} ->
+        Hex.Shell.info ""
+        Hex.Shell.error "Pushing docs for #{name} v#{version} failed"
+        Hex.Utils.print_error_result(code, body)
+    end
+  end
+
+  defp files(directory) do
+    "#{directory}/**"
+    |> Path.wildcard
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.map(&{relative_path(&1, directory), File.read!(&1)})
+  end
+
+  defp relative_path(file, dir) do
+    Path.relative_to(file, dir)
+    |> String.to_char_list
+  end
+  
+  defp docs_dir do
+    cond do
+      File.exists?("doc") ->
+        "doc"
+      File.exists?("docs") ->
+        "docs"
+      true ->
+        Mix.raise("Documentation could not be found. Please ensure documentation is in the doc/ or docs/ directory")
     end
   end
 end

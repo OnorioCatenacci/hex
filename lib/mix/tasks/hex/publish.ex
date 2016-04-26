@@ -93,7 +93,7 @@ defmodule Mix.Tasks.Hex.Publish do
           package(opts)
 
         ["docs"] ->
-          docs(opts, args)
+          docs(opts)
 
       _ ->
           Mix.raise "Invalid arguments, expected one of:\n" <>
@@ -130,7 +130,7 @@ defmodule Mix.Tasks.Hex.Publish do
     Hex.Shell.info "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
   end
 
-  defp docs(opts, args) do
+  defp docs(opts) do
     Hex.start
       
     Hex.Utils.ensure_registry(fetch: false)
@@ -144,9 +144,8 @@ defmodule Mix.Tasks.Hex.Publish do
       revert(name, revert, auth)
     else
       try do
-        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
+        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)]
         Mix.Task.run("docs", docs_args)
-        Hex.Shell.info("Got to Mix.Task.run")
       rescue ex in [Mix.NoTaskError] ->
         stacktrace = System.stacktrace
         Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>

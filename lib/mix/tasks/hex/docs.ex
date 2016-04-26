@@ -46,6 +46,7 @@ defmodule Mix.Tasks.Hex.Docs do
     else
       try do
         docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
+        Hex.Shell.info("docs_args = #{docs_args}")
         Mix.Task.run("docs", docs_args)
         Hex.Shell.info("Got to Mix.Task.run")
       rescue ex in [Mix.NoTaskError] ->

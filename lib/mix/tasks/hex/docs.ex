@@ -20,11 +20,11 @@ defmodule Mix.Tasks.Hex.Docs do
   ## Command line options
 
     * `--revert VERSION` - Revert given version
-    * `open` - Opens the docs in the default web browser
-    * `fetch PACKAGE VERSION` - Gets a copy of the docs for the specified package and version to the local machine. Defaults to current package and version.
+    * `open --package PACKAGE` - Opens the docs for specified package in the default web browser. Defaults to current package.
+    * `fetch --package PACKAGE  --version VERSION` - Gets a copy of the docs for the specified package and version to the local machine. Defaults to current package and version.
   """
 
-  @switches [revert: :string, progress: :boolean]
+  @switches [revert: :string, progress: :boolean, package: :string, version: :string]
 
   def run(args) do
     Hex.start
@@ -38,35 +38,79 @@ defmodule Mix.Tasks.Hex.Docs do
     name    = config[:package][:name] || config[:app]
     version = config[:version]
 
-    Hex.Shell.info("#{name} #{version}")
-    Hex.Shell.info("opts[:revert] #{opts[:revert]}")
+    package_name = if (opts[:package]), do: opts[:package], else: name
+    package_version  = if (opts[:version]), do: opts[:version], else: version
     if revert = opts[:revert] do
       revert(name, revert, auth)
     else
-      try do
-        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
-        Hex.Shell.info("docs_args = #{docs_args}")
-        Mix.Task.run("docs", docs_args)
-        Hex.Shell.info("Got to Mix.Task.run")
-      rescue ex in [Mix.NoTaskError] ->
-        stacktrace = System.stacktrace
-        Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>
-                        ~s( to your dependencies or if ex_doc was already added make sure you run) <>
-                        ~s( the task in the same environment it is configured to)
-        reraise ex, stacktrace
+      case args do
+        ["open"] ->
+          open_docs(package_name)
+        ["fetch"] ->
+          fetch_hex_docs(package_name, package_version)
+        _ -> Mix.raise "Invalid arguments, expected one of:\n" <>
+            "mix hex.docs open \n" <>
+            "mix.hex.docs fetch [Package] [Version] \n"
+       
+     
+#      try do
+#        docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)|args]
+#        Mix.Task.run("docs", docs_args)
+#      rescue ex in [Mix.NoTaskError] ->
+#        stacktrace = System.stacktrace
+#        Mix.shell.error ~s(The "docs" task is unavailable, add {:ex_doc, ">= x.y.z", only: [:dev]}) <>
+#                        ~s( to your dependencies or if ex_doc was already added make sure you run) <>
+#                        ~s( the task in the same environment it is configured to)
+#        reraise ex, stacktrace
+#      end
+
+#     directory = docs_dir()
+
+#     unless File.exists?("#{directory}/index.html") do
+#       Mix.raise "File not found: #{directory}/index.html"
+#     end
+
+#     progress? = Keyword.get(opts, :progress, true)
+#     tarball = build_tarball(name, version, directory)
+#     send_tarball(name, version, tarball, auth, progress?)
       end
-
-      directory = docs_dir()
-
-      unless File.exists?("#{directory}/index.html") do
-        Mix.raise "File not found: #{directory}/index.html"
-      end
-
-      progress? = Keyword.get(opts, :progress, true)
-      tarball = build_tarball(name, version, directory)
-      send_tarball(name, version, tarball, auth, progress?)
     end
   end
+  
+
+  defp open_docs(name) do
+    doc_index = "#{Utils.get_docs_directory(name)}/index.html"
+    unless File.exists?(doc_index) do
+      Mix.raise "Documentation file not found: #{doc_index}"
+    end
+    start_browser_command =
+      case (:os.type()) do
+        {:win32,_} -> "start"
+        {:unix,_} -> "xdg-open"
+      end
+  
+    System.cmd(start_browser_command, [doc_index])
+  end
+  
+  defp fetch_hex_docs(name, version) do
+    doc_dir = Utils.get_docs_directory(name)
+    Hex.Shell.info("doc_dir = #{doc_dir}")
+    unless File.exists?(doc_dir), do: :ok = File.mkdir_p(doc_dir)
+
+    doc_file_glob= "#{Hex.Utils.hexdocs_url(name)}/*.html"
+    Hex.Shell.info("doc_file_glob is #{doc_file_glob}")
+    Hex.Shell.info("Utils.hexdocs_url(name, version) returns #{Hex.Utils.hexdocs_url(name)}")
+    case (Hex.SCM.request(doc_file_glob,"")) do
+          -> {:ok, resp} 
+            tarfile = "#{doc_index}/*.html"
+            File.write!(tarfile, resp)
+#            :erl_tar.extract(tarfile,[:compressed])
+          
+          -> {:error, message} 
+            Mix.raise("Unable to fetch documentation. Message returned is #{message}")
+      end    
+  end
+    
 
   defp build_tarball(name, version, directory) do
     tarball = "#{name}-#{version}-docs.tar.gz"

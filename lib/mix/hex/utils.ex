@@ -82,4 +82,6 @@ defmodule Mix.Hex.Utils do
 
   def clean_version("v" <> version), do: version
   def clean_version(version),        do: version
+
+  def get_docs_directory(package), do: "~/.hex/docs/#{package}"
 end

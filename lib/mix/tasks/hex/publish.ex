@@ -145,6 +145,7 @@ defmodule Mix.Tasks.Hex.Publish do
     else
       try do
         docs_args = ["--canonical", Hex.Utils.hexdocs_url(name)]
+        Hex.Shell.info("docs_args = #{docs_args}")
         Mix.Task.run("docs", docs_args)
       rescue ex in [Mix.NoTaskError] ->
         stacktrace = System.stacktrace
@@ -154,14 +155,15 @@ defmodule Mix.Tasks.Hex.Publish do
         reraise ex, stacktrace
       end
 
-      directory = docs_dir()
+#      directory = docs_dir()
 
-      unless File.exists?("#{directory}/index.html") do
-        Mix.raise "File not found: #{directory}/index.html"
+      doc_index = "#{Hex.Utils.get_docs_directory(name)}/index.html"
+      unless File.exists?(doc_index) do
+        Mix.raise "Documentation file not found: #{doc_index}"
       end
 
       progress? = Keyword.get(opts, :progress, true)
-      tarball = build_tarball(name, version, directory)
+      tarball = build_tarball(name, version, Hex.Utils.get_docs_directory(name))
       send_tarball(name, version, tarball, auth, progress?)
     end
   end

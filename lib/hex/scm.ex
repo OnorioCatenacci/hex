@@ -193,7 +193,7 @@ defmodule Hex.SCM do
     end
   end
 
-  defp request(url, etag) do
+  def request(url, etag) do
     opts = [body_format: :binary]
     headers = [{'user-agent', Hex.API.user_agent}]
     headers = if etag, do: [{'if-none-match', '"' ++ etag ++ '"'}|headers], else: headers

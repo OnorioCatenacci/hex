@@ -21,10 +21,10 @@ defmodule Mix.Tasks.Hex.PublishTest do
       setup_auth("user", "hunter42")
 
       send self, {:mix_shell_input, :yes?, true}
-      Mix.Tasks.Hex.Publish.run(["--no-progress"])
+      Mix.Tasks.Hex.Publish.run(["--no-progress", "package"])
       assert {200, _, _} = Hex.API.Release.get("release_a", "0.0.1")
 
-      msg = "Before publishing, please read Hex Code of Conduct: https://hex.pm/policies/codeofconduct"
+      msg = "Before publishing, please read Hex Code of Conduct: https://hex.pm/docs/codeofconduct"
       assert_received {:mix_shell, :info, [^msg]}
 
       send self, {:mix_shell_input, :yes?, true}
@@ -43,7 +43,7 @@ defmodule Mix.Tasks.Hex.PublishTest do
       setup_auth("user", "hunter42")
 
       send self, {:mix_shell_input, :yes?, true}
-      Mix.Tasks.Hex.Publish.run(["--no-progress"])
+      Mix.Tasks.Hex.Publish.run(["--no-progress", "package"])
       assert {200, body, _} = Hex.API.Release.get("released_name", "0.0.1")
       assert body["meta"]["app"] == "release_d"
     end
@@ -59,7 +59,7 @@ defmodule Mix.Tasks.Hex.PublishTest do
       setup_auth("user", "hunter42")
 
       send self, {:mix_shell_input, :yes?, true}
-      Mix.Tasks.Hex.Publish.run(["--no-progress"])
+      Mix.Tasks.Hex.Publish.run(["--no-progress","package"])
       assert {200, _, _} = Hex.API.Release.get("release_a", "0.0.1")
     end
   after
@@ -76,7 +76,7 @@ defmodule Mix.Tasks.Hex.PublishTest do
       Mix.Tasks.Deps.Get.run([])
 
       send self, {:mix_shell_input, :yes?, true}
-      Mix.Tasks.Hex.Publish.run(["--no-progress"])
+      Mix.Tasks.Hex.Publish.run(["--no-progress", "package"])
 
       assert_received {:mix_shell, :info, ["\e[33m  WARNING! No files\e[0m"]}
       assert_received {:mix_shell, :info, ["\e[33m  WARNING! Missing metadata fields: licenses, maintainers, links\e[0m"]}
@@ -95,7 +95,7 @@ defmodule Mix.Tasks.Hex.PublishTest do
 
       File.write!("myfile.txt", "hello")
       send self, {:mix_shell_input, :yes?, true}
-      Mix.Tasks.Hex.Publish.run(["--no-progress"])
+      Mix.Tasks.Hex.Publish.run(["--no-progress", "package"])
 
       assert_received {:mix_shell, :info, ["Publishing release_c 0.0.3"]}
       assert_received {:mix_shell, :info, ["  Files:"]}

@@ -1,4 +1,6 @@
 defmodule Mix.Hex.Utils do
+  @request_timeout 60_000
+  
   def generate_key(username, password) do
     Hex.Shell.info("Generating API key...")
     {:ok, name} = :inet.gethostname()
@@ -82,4 +84,29 @@ defmodule Mix.Hex.Utils do
 
   def clean_version("v" <> version), do: version
   def clean_version(version),        do: version
+
+  def get_docs_directory(package, version) when is_binary(package) and is_binary(version) do
+    home_dir = System.user_home()
+    "#{home_dir}/.hex/docs/#{package}/#{version}"
+  end
+
+  def fetch_remote_file(url, etag) do
+    opts = [body_format: :binary]
+    headers = [{'user-agent', Hex.API.user_agent}]
+    headers = if etag, do: [{'if-none-match', '"' ++ etag ++ '"'}|headers], else: headers
+    http_opts = [ssl: Hex.API.ssl_opts(url), relaxed: true, timeout: @request_timeout] ++ Hex.Utils.proxy_config(url)
+    url = String.to_char_list(url)
+
+    case :httpc.request(:get, {url, headers}, http_opts, opts, :hex) do
+      {:ok, {{_version, 200, _reason}, _headers, body}} ->
+        {:ok, body}
+      {:ok, {{_version, 304, _reason}, _headers, _body}} ->
+        {:ok, :cached}
+      {:ok, {{_version, code, _reason}, _headers, _body}} ->
+        {:error, "Request failed (#{code})"}
+      {:error, reason} ->
+        {:error, "Request failed (#{inspect reason})"}
+    end
+  end
+
 end

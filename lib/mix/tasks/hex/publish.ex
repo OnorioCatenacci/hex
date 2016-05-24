@@ -155,8 +155,6 @@ defmodule Mix.Tasks.Hex.Publish do
         reraise ex, stacktrace
       end
 
-#      directory = docs_dir()
-
       doc_index = "#{Hex.Utils.get_docs_directory(name)}/index.html"
       unless File.exists?(doc_index) do
         Mix.raise "Documentation file not found: #{doc_index}"

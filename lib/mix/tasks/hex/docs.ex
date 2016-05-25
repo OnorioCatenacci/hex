@@ -48,9 +48,10 @@ defmodule Mix.Tasks.Hex.Docs do
           open_docs(package_name, package_version)
         ["fetch"] ->
           fetch_hex_docs(package_name, package_version)
-        _ -> Mix.raise "Invalid arguments, expected one of:\n" <>
-            "mix hex.docs open --package [PackageName] --version [PackageVersion] \n" <>
-            "mix.hex.docs fetch --package [PackageName] --version [PackageVersion] \n"
+        _ ->
+          Mix.raise "Invalid arguments, expected one of:\n" <>
+          "mix hex.docs open --package [PackageName] --version [PackageVersion] \n" <>
+          "mix.hex.docs fetch --package [PackageName] --version [PackageVersion] \n"
       end
     end
   end
@@ -65,6 +66,7 @@ defmodule Mix.Tasks.Hex.Docs do
       case (:os.type()) do
         {:win32,_} -> "start"
         {:unix,_} -> "xdg-open"
+        #TODO: Double check command OS type and commend for OS X
       end
   
     :os.cmd('#{start_browser_command} #{doc_index}')
@@ -75,17 +77,16 @@ defmodule Mix.Tasks.Hex.Docs do
     base_archive_name = "#{name}-#{version}.tar.gz"  
     doc_file_archive = "#{doc_dir}/#{base_archive_name}"
     doc_archive_url = "https://repo.hex.pm/docs/#{base_archive_name}"
-    case (Hex.SCM.request(doc_archive_url, nil)) do
-          {:ok, resp} -> 
-            unless File.exists?(doc_dir), do: :ok = File.mkdir_p(doc_dir)
-            File.write!(doc_file_archive, resp)
-            File.cd!(doc_dir, fn -> :erl_tar.extract(base_archive_name,[:compressed]) end)
+    case Hex.SCM.request(doc_archive_url, nil) do
+      {:ok, resp} -> 
+        unless File.exists?(doc_dir), do: :ok = File.mkdir_p(doc_dir)
+        File.write!(doc_file_archive, resp)
+        File.cd!(doc_dir, fn -> :erl_tar.extract(base_archive_name,[:compressed]) end)
           
-          {:error, message} -> 
-            Mix.raise("Unable to fetch documentation. Message returned is #{message}")
-      end    
+      {:error, message} -> 
+        Mix.raise("Unable to fetch documentation. Message returned is #{message}")
+    end    
   end
-    
 
   defp build_tarball(name, version, directory) do
     tarball = "#{name}-#{version}-docs.tar.gz"

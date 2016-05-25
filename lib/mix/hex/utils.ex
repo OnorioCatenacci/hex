@@ -84,7 +84,7 @@ defmodule Mix.Hex.Utils do
   def clean_version(version),        do: version
 
   def get_docs_directory(package, version) when is_binary(package) and is_binary(version) do
-    home_dir = System.user_home()
-    "#{home_dir}/.hex/docs/#{package}/#{version}"
+    hex_dir = Hex.State.fetch!(:home)
+    "#{hex_dir}/docs/#{package}/#{version}"
   end
 end

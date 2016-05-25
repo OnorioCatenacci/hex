@@ -22,9 +22,9 @@ defmodule Mix.Tasks.Hex.Publish do
 
     * `--revert VERSION` - Revert given version
  
-   * `docs` - Publish docs to hex.pm
+   * `docs` - Publish docs to server
  
-   * `package` - Publish package to hex.pm
+   * `package` - Publish package to server
 
   ## Configuration
 
@@ -154,8 +154,6 @@ defmodule Mix.Tasks.Hex.Publish do
                         ~s( the task in the same environment it is configured to)
         reraise ex, stacktrace
       end
-
-#      directory = docs_dir()
 
       doc_index = "#{Hex.Utils.get_docs_directory(name)}/index.html"
       unless File.exists?(doc_index) do

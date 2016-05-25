@@ -67,7 +67,7 @@ defmodule Hex.SCM do
     case Hex.Utils.lock(opts[:lock]) do
       [:hex, name, version, _checksum, nil, _deps] ->
         Hex.Utils.ensure_registry!(fetch: false)
-        name        = Atom.to_string(name)
+        name = Atom.to_string(name)
         build_tools = Hex.Registry.get_build_tools(name, version) || []
         Enum.map(build_tools, &String.to_atom/1)
       [:hex, _name, _version, _checksum, managers, _deps] ->
@@ -199,8 +199,9 @@ defmodule Hex.SCM do
     headers = if etag, do: [{'if-none-match', '"' ++ etag ++ '"'}|headers], else: headers
     http_opts = [ssl: Hex.API.ssl_opts(url), relaxed: true, timeout: @request_timeout] ++ Hex.Utils.proxy_config(url)
     url = String.to_char_list(url)
+    profile = Hex.State.fetch!(:httpc_profile)
 
-    case :httpc.request(:get, {url, headers}, http_opts, opts, :hex) do
+    case :httpc.request(:get, {url, headers}, http_opts, opts, profile) do
       {:ok, {{_version, 200, _reason}, _headers, body}} ->
         {:ok, body}
       {:ok, {{_version, 304, _reason}, _headers, _body}} ->
